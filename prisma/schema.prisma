@@ -15,7 +15,9 @@ model User {
   role      String   @default("USER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  orders    Order[]
+  orders    Order[]   // Orders placed by the user
+  products  Product[] // Products created by the user (e.g., artisan)
+  tickets Ticket[]
 }
 
 model Product {
@@ -23,21 +25,45 @@ model Product {
   name        String
   description String?
   price       Float
+  category    String?
   pictures    String[] // Array of image URLs
   stock       Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  orders      Order[]
+  orderItems  OrderItem[]
+  userId      String   // Foreign key to link to the artisan (User)
+  user        User     @relation(fields: [userId], references: [id]) // Relation to User
 }
 
 model Order {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  orderItems  OrderItem[]
+  totalPrice  Float
+  status      String      @default("PENDING")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ticket {
   id         String   @id @default(uuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id])
-  quantity   Int
-  totalPrice Float
+  subject String
+  message String
   status     String   @default("PENDING")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

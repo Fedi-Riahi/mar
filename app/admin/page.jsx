@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const { user, loading, error } = useAuth();
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
   const [fetchError, setFetchError] = useState('');
   const router = useRouter();
 
@@ -18,15 +19,23 @@ export default function AdminDashboard() {
     }
 
     if (user && user.role === 'ADMIN') {
+      // Fetch products
       fetch('/api/products')
         .then((res) => res.json())
         .then((data) => setProducts(data))
         .catch(() => setFetchError('Failed to fetch products'));
 
+      // Fetch orders
       fetch('/api/orders')
         .then((res) => res.json())
         .then((data) => setOrders(data))
         .catch(() => setFetchError('Failed to fetch orders'));
+
+      // Fetch users
+      fetch('/api/users')
+        .then((res) => res.json())
+        .then((data) => setUsers(data))
+        .catch(() => setFetchError('Failed to fetch users'));
     }
   }, [user, loading, router]);
 
@@ -97,6 +106,49 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update role');
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
+    } catch (err) {
+      setFetchError(err.message);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete user');
+      }
+
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch (err) {
+      setFetchError(err.message);
+    }
+  };
+
   if (loading) return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
       <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600"></div>
@@ -112,7 +164,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
-            <p className="mt-2 text-lg text-gray-600">Effortlessly manage your products and orders</p>
+            <p className="mt-2 text-lg text-gray-600">Effortlessly manage your products, orders, and users</p>
           </div>
           <div className="mt-4 sm:mt-0">
             <Link
@@ -153,7 +205,7 @@ export default function AdminDashboard() {
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadowAdrian-xl hover:-translate-y-1"
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                 >
                   <div className="relative h-48">
                     <img
@@ -169,9 +221,7 @@ export default function AdminDashboard() {
                         ${product.price}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm
-
- text-gray-600 line-clamp-2">{product.description}</p>
+                    <p className="mt-2 text-sm text-gray-600 line-clamp-2">{product.description}</p>
                     <div className="mt-4 flex justify-between items-center">
                       <span className="text-sm text-gray-500">Stock: {product.stock}</span>
                       <div className="flex space-x-2">
@@ -201,7 +251,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Orders Section */}
-        <div>
+        <div className="mb-12">
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">Recent Orders</h2>
           {orders.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
@@ -274,6 +324,96 @@ export default function AdminDashboard() {
                       </select>
                       <button
                         onClick={() => handleDeleteOrder(order.id)}
+                        className="flex items-center justify-center px-4 py-2 bg-red-50 text-red-600 font-medium rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Users Section */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Users</h2>
+          {users.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+              <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <h3 className="mt-4 text-xl font-semibold text-gray-900">No Users Available</h3>
+              <p className="mt-2 text-gray-500">Users will appear here once they register.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {users.map((u) => (
+                <div
+                  key={u.id}
+                  className="bg-white rounded-2xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl"
+                >
+                  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            u.role === 'ADMIN'
+                              ? 'bg-blue-100 text-blue-800'
+                              : u.role === 'ARTISAN'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                        </span>
+                        <span className="text-sm text-gray-500">User #{u.id.slice(0, 8)}</span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-semibold text-gray-900">{u.name}</h3>
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          Email: {u.email}
+                        </div>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Joined: {new Date(u.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-3">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        className={`text-sm font-medium rounded-lg py-2 px-4 border focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
+                          u.role === 'ADMIN'
+                            ? 'border-blue-300 bg-blue-50 text-blue-800 focus:ring-blue-500'
+                            : u.role === 'ARTISAN'
+                            ? 'border-purple-300 bg-purple-50 text-purple-800 focus:ring-purple-500'
+                            : 'border-gray-300 bg-gray-50 text-gray-800 focus:ring-gray-500'
+                        }`}
+                      >
+                        <option value="USER">User</option>
+                        <option value="ARTISAN">Artisan</option>
+                      </select>
+                      <Link
+                        href={`/admin/user-profile?id=${u.id}`}
+                        className="flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Profile
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
                         className="flex items-center justify-center px-4 py-2 bg-red-50 text-red-600 font-medium rounded-lg hover:bg-red-100 transition-colors"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

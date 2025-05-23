@@ -26,11 +26,13 @@ export async function POST(req) {
     const description = formData.get('description');
     const price = formData.get('price');
     const stock = formData.get('stock');
+    const category = formData.get('category');
+    const userId = formData.get('userId');
     const images = formData.getAll('images');
 
     // Validate fields
-    if (!name || !description || !price || !stock) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    if (!name || !description || !price || !stock || !category || !userId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (images.length === 0 || images[0].size === 0) {
@@ -41,7 +43,7 @@ export async function POST(req) {
     const pictures = [];
     for (const image of images) {
       if (image.size > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Image size exceeds 10MB' }, { status: 400 });
+        return NextResponse.json({ error: 'Image size exceeds 10MB limit' }, { status: 400 });
       }
 
       const buffer = Buffer.from(await image.arrayBuffer());
@@ -61,7 +63,7 @@ export async function POST(req) {
       pictures.push(result.secure_url);
     }
 
-    // Create product
+    // Create product with user connection
     const product = await prisma.product.create({
       data: {
         name,
@@ -69,22 +71,56 @@ export async function POST(req) {
         price: parseFloat(price),
         pictures,
         stock: parseInt(stock, 10),
+        category,
+        user: {
+          connect: {
+            id: userId // This should match your Prisma schema's User model ID type
+          }
+        }
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error('Product creation error:', error);
-    return NextResponse.json({ error: 'Product creation failed' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Product creation failed', details: error.message },
+      { status: 400 }
+    );
   }
 }
 
 export async function GET() {
   try {
-    const products = await prisma.product.findMany();
+    const products = await prisma.product.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
     return NextResponse.json(products);
   } catch (error) {
     console.error('Fetch products error:', error);
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch products', details: error.message },
+      { status: 500 }
+    );
   }
 }

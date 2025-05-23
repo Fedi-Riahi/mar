@@ -19,7 +19,7 @@ export async function PUT(req, { params }) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const productId = params.id;
+  const productId = await params.id;
 
   try {
     const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -32,11 +32,12 @@ export async function PUT(req, { params }) {
     const description = formData.get('description');
     const price = formData.get('price');
     const stock = formData.get('stock');
+    const category = formData.get('category');
     const images = formData.getAll('images');
     const existingImages = formData.get('existingImages') ? JSON.parse(formData.get('existingImages')) : [];
     const removedImages = formData.get('removedImages') ? JSON.parse(formData.get('removedImages')) : [];
 
-    if (!name || !description || !price || !stock) {
+    if (!name || !description || !price || !stock || !category) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
@@ -78,6 +79,7 @@ export async function PUT(req, { params }) {
         description,
         price: parseFloat(price),
         stock: parseInt(stock, 10),
+        category,
         pictures,
       },
     });

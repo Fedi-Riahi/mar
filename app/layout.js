@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from './api/auth/[...nextauth]/route';
 import Link from 'next/link';
 import  SessionContext  from './SessionContext';
+import { CartProvider } from '@/lib/CartContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
@@ -17,6 +18,8 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={inter.className}>
+        <CartProvider>
+
         <SessionContext session={session}>
           <nav className="bg-blue-600 text-white p-4">
             <div className="container flex justify-between items-center">
@@ -25,9 +28,9 @@ export default async function RootLayout({ children }) {
               </Link>
               <div className="space-x-4">
                 {session ? (
-                  <>
+                    <>
                     {session.user.role === 'ADMIN' && (
-                      <Link href="/admin" className="hover:underline">
+                        <Link href="/admin" className="hover:underline">
                         Admin Dashboard
                       </Link>
                     )}
@@ -35,14 +38,14 @@ export default async function RootLayout({ children }) {
                       action="/api/auth/signout"
                       method="POST"
                       className="inline"
-                    >
+                      >
                       <button type="submit" className="hover:underline">
                         Sign Out
                       </button>
                     </form>
                   </>
                 ) : (
-                  <>
+                    <>
                     <Link href="/signin" className="hover:underline">
                       Sign In
                     </Link>
@@ -56,6 +59,7 @@ export default async function RootLayout({ children }) {
           </nav>
           {children}
         </SessionContext>
+                </CartProvider>
       </body>
     </html>
   );
