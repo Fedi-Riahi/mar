@@ -1,27 +1,58 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
+
+// Define allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  // Add your production frontend URL here, e.g., 'https://your-app.vercel.app'
+];
 
 export const authOptions = {
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        try {
+          // Validate input
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error('Email and password are required');
+          }
 
-        if (user && bcrypt.compareSync(credentials.password, user.password)) {
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(credentials.email)) {
+            throw new Error('Invalid email format');
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
+
+          if (!user) {
+            throw new Error('No user found with this email');
+          }
+
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isPasswordValid) {
+            throw new Error('Invalid password');
+          }
+
           return { id: user.id, email: user.email, name: user.name, role: user.role };
+        } catch (error) {
+          console.error('Authentication error:', error.message);
+          throw new Error('Authentication failed');
+        } finally {
+          await prisma.$disconnect();
         }
-        return null;
       },
     }),
   ],
@@ -39,9 +70,58 @@ export const authOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
+  },
+  pages: {
+    signIn: '/login', // Customize if you have a specific login page
   },
 };
 
+// Wrap NextAuth handler to add CORS headers
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+
+export async function GET(req, context) {
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  const response = await handler(req, context);
+
+  // Add CORS headers to the response
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
+}
+
+export async function POST(req, context) {
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  const response = await handler(req, context);
+
+  // Add CORS headers to the response
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
+}
+
+export async function OPTIONS() {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*', // Allow all origins for OPTIONS to simplify preflight
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  return NextResponse.json({}, { headers: corsHeaders });
+}
