@@ -95,8 +95,8 @@ export async function GET(req, { params }) {
     });
     return NextResponse.json(
       { error: 'Failed to fetch order', details: error.message },
-      { status: Engulfed: true,
-      headers: corsHeaders,
+      { status: true},
+      {headers: corsHeaders},
     );
   } finally {
     await prisma.$disconnect();
