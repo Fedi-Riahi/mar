@@ -13,14 +13,31 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Define allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  // Add your production frontend URL here, e.g., 'https://your-app.vercel.app'
+];
+
 export async function POST(req) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token || token.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // Handle CORS
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
 
   try {
-    // Parse form data using NextRequest.formData()
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!token || token.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Parse form data
     const formData = await req.formData();
     const name = formData.get('name');
     const description = formData.get('description');
@@ -32,18 +49,27 @@ export async function POST(req) {
 
     // Validate fields
     if (!name || !description || !price || !stock || !category || !userId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     if (images.length === 0 || images[0].size === 0) {
-      return NextResponse.json({ error: 'At least one image is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'At least one image is required' },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     // Handle image uploads to Cloudinary
     const pictures = [];
     for (const image of images) {
       if (image.size > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Image size exceeds 10MB limit' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Image size exceeds 10MB limit' },
+          { status: 400, headers: corsHeaders }
+        );
       }
 
       const buffer = Buffer.from(await image.arrayBuffer());
@@ -74,32 +100,42 @@ export async function POST(req) {
         category,
         user: {
           connect: {
-            id: userId // This should match your Prisma schema's User model ID type
-          }
-        }
+            id: userId,
+          },
+        },
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json(product, { status: 201 });
+    return NextResponse.json(product, { status: 201, headers: corsHeaders });
   } catch (error) {
     console.error('Product creation error:', error);
     return NextResponse.json(
       { error: 'Product creation failed', details: error.message },
-      { status: 400 }
+      { status: 400, headers: corsHeaders }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function GET() {
+export async function GET(req) {
+  // Handle CORS
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   try {
     const products = await prisma.product.findMany({
       include: {
@@ -107,20 +143,33 @@ export async function GET() {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
-    return NextResponse.json(products);
+
+    return NextResponse.json(products, { headers: corsHeaders });
   } catch (error) {
     console.error('Fetch products error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch products', details: error.message },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
+  } finally {
+    await prisma.$disconnect();
   }
+}
+
+export async function OPTIONS() {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*', // Allow all origins for OPTIONS to simplify preflight
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  return NextResponse.json({}, { headers: corsHeaders });
 }

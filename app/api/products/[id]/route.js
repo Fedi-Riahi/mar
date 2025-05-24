@@ -13,18 +13,37 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Define allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  // Add your production frontend URL here, e.g., 'https://your-app.vercel.app'
+];
+
 export async function PUT(req, { params }) {
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'PUT, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || token.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: corsHeaders }
+    );
   }
 
-  const productId = await params.id;
+  const productId = params.id;
 
   try {
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404, headers: corsHeaders }
+      );
     }
 
     const formData = await req.formData();
@@ -34,17 +53,27 @@ export async function PUT(req, { params }) {
     const stock = formData.get('stock');
     const category = formData.get('category');
     const images = formData.getAll('images');
-    const existingImages = formData.get('existingImages') ? JSON.parse(formData.get('existingImages')) : [];
-    const removedImages = formData.get('removedImages') ? JSON.parse(formData.get('removedImages')) : [];
+    const existingImages = formData.get('existingImages')
+      ? JSON.parse(formData.get('existingImages'))
+      : [];
+    const removedImages = formData.get('removedImages')
+      ? JSON.parse(formData.get('removedImages'))
+      : [];
 
     if (!name || !description || !price || !stock || !category) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing fields' },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     const pictures = [...existingImages];
     for (const image of images) {
       if (image.size > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Image size exceeds 10MB' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Image size exceeds 10MB' },
+          { status: 400, headers: corsHeaders }
+        );
       }
       if (image.size > 0) {
         const buffer = Buffer.from(await image.arrayBuffer());
@@ -82,32 +111,82 @@ export async function PUT(req, { params }) {
         category,
         pictures,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json(updatedProduct, { status: 200 });
+    return NextResponse.json(updatedProduct, { status: 200, headers: corsHeaders });
   } catch (error) {
     console.error('Product update error:', error);
-    return NextResponse.json({ error: 'Product update failed' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Product update failed', details: error.message },
+      { status: 400, headers: corsHeaders }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function GET(req, { params }) {
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'PUT, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   try {
-    const product = await prisma.product.findUnique({ where: { id: params.id } });
+    const product = await prisma.product.findUnique({
+      where: { id: params.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
     if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404, headers: corsHeaders }
+      );
     }
-    return NextResponse.json(product);
+    return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
     console.error('Fetch product error:', error);
-    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch product', details: error.message },
+      { status: 500, headers: corsHeaders }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function DELETE(req, { params }) {
+  const origin = req.headers.get('origin');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'PUT, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || token.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: corsHeaders }
+    );
   }
 
   const productId = params.id;
@@ -115,16 +194,19 @@ export async function DELETE(req, { params }) {
   try {
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      include: { orders: true },
+      include: { orderItems: true }, // Updated to use orderItems instead of orders
     });
     if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404, headers: corsHeaders }
+      );
     }
 
-    if (product.orders.length > 0) {
+    if (product.orderItems.length > 0) {
       return NextResponse.json(
-        { error: 'Cannot delete product with existing orders' },
-        { status: 400 }
+        { error: 'Cannot delete product with existing order items' },
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -139,9 +221,27 @@ export async function DELETE(req, { params }) {
     // Delete product from database
     await prisma.product.delete({ where: { id: productId } });
 
-    return NextResponse.json({ message: 'Product deleted' }, { status: 200 });
+    return NextResponse.json(
+      { message: 'Product deleted' },
+      { status: 200, headers: corsHeaders }
+    );
   } catch (error) {
     console.error('Product deletion error:', error);
-    return NextResponse.json({ error: 'Product deletion failed' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Product deletion failed', details: error.message },
+      { status: 400, headers: corsHeaders }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
+}
+
+export async function OPTIONS() {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*', // Allow all origins for OPTIONS to simplify preflight
+    'Access-Control-Allow-Methods': 'PUT, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  return NextResponse.json({}, { headers: corsHeaders });
 }

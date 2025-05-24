@@ -284,13 +284,13 @@ export default function AdminDashboard() {
                         </span>
                         <span className="text-sm text-gray-500">Order #{order.id.slice(0, 8)}</span>
                       </div>
-                      <h3 className="mt-3 text-lg font-semibold text-gray-900">{order.product.name}</h3>
+                      <h3 className="mt-3 text-lg font-semibold text-gray-900"></h3>
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-600">
                         <div className="flex items-center">
                           <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
-                          User: {order.userId.slice(0, 8)}...
+                          User: {order.User.name}...
                         </div>
                         <div className="flex items-center">
                           <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
