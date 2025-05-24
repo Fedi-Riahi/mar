@@ -164,11 +164,18 @@ export async function GET(req) {
   }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(req) {
+  const origin = req.headers.get("origin");
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "https://your-frontend.vercel.app", // Add production frontend URL
+  ];
+
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*', // Allow all origins for OPTIONS to simplify preflight
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    "Access-Control-Allow-Origin": allowedOrigins.includes(origin) ? origin : "",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true", // Allow credentials
   };
 
   return NextResponse.json({}, { headers: corsHeaders });
