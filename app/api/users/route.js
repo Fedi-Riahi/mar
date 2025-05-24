@@ -109,6 +109,7 @@ export async function GET(req) {
         email: true,
         name: true,
         role: true,
+        location: true,
         createdAt: true,
       },
     });
