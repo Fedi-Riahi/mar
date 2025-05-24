@@ -20,61 +20,66 @@ export async function POST(req) {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 
-  try {
-    const { email, name, password, role } = await req.json();
+   try {
+    const {
+      fullName,
+      email,
+      phone,
+      businessName,
+      bio,
+      location,
+      password,
+    } = await req.json();
 
-    // Validate input
-    if (!email || !name || !password) {
+    // Validate required fields
+    if (!fullName || !email || !password) {
       return NextResponse.json(
-        { error: "Missing required fields: email, name, and password are required" },
-        { status: 400, headers: corsHeaders }
+        { error: "Full name, email, and password are required" },
+        { status: 400, headers : corsHeaders }
       );
     }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Invalid email format" },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // Validate role
-    const validRoles = ["USER", "ADMIN"];
-    const userRole = role && validRoles.includes(role.toUpperCase()) ? role.toUpperCase() : "USER";
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json(
         { error: "User with this email already exists" },
-        { status: 409, headers: corsHeaders }
+        { status: 409, headers : corsHeaders }
       );
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with artisan application data
     const user = await prisma.user.create({
       data: {
         email,
-        name,
+        name: fullName,
         password: hashedPassword,
-        role: userRole,
+        phone: phone ? parseInt(phone) : null,
+        businessName: businessName || null,
+        bio: bio || null,
+        location: location || null,
+        role: "ARTISAN_PENDING",
       },
     });
 
     return NextResponse.json(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
-      { status: 201, headers: corsHeaders }
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.role === "ARTISAN_PENDING" ? "PENDING" : undefined,
+      },
+      { status: 201, headers : corsHeaders }
     );
   } catch (error) {
     console.error("User creation error:", error);
     return NextResponse.json(
       { error: "User creation failed", details: error.message },
-      { status: 400, headers: corsHeaders }
+      { status: 500, headers : corsHeaders }
     );
   } finally {
     await prisma.$disconnect();
